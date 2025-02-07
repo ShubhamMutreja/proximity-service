@@ -47,5 +47,5 @@ func main() {
 	_ = base.NewService(dbSvc)
 
 	svc.InitRoutes()
-	svc.Run(":8000")
+	svc.Run(":8080")
 }

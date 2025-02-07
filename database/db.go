@@ -12,7 +12,7 @@ const (
 	UPDATEQUERY    = "UPDATE business SET name = $1, latitude = $2, longitude = $3, phone = $4, city = $5, state = $6, zipcode = $7 WHERE id = $8"
 	SELECTALLQUERY = "SELECT * FROM business"
 	SELECTONEQUERY = "SELECT * FROM business WHERE id = $1"
-	DELETEONEQUERY = "DELETE FROM users WHERE id = $1"
+	DELETEONEQUERY = "DELETE FROM business WHERE id = $1"
 )
 
 type proximityDBService struct {
@@ -76,20 +76,20 @@ func NewDBService(qT interface{}, dB *sql.DB) ProximityDBService {
 func (db *proximityDBService) GetAllBusinessesFromDB() []models.Business {
 	rows, err := db.DB.Query(SELECTALLQUERY)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	defer rows.Close()
 
 	businesses := []models.Business{}
 	for rows.Next() {
 		var u models.Business
-		if err := rows.Scan(&u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode, &u.ID); err != nil {
-			log.Fatal(err)
+		if err := rows.Scan(&u.ID, &u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode); err != nil {
+			log.Println(err)
 		}
 		businesses = append(businesses, u)
 	}
 	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return businesses
 }
@@ -99,7 +99,7 @@ func (db *proximityDBService) GetBusinessFromDB(req models.Business) models.Busi
 	var u models.Business
 	err := db.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&u.ID, &u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return u
 }
@@ -108,25 +108,23 @@ func (db *proximityDBService) GetBusinessFromDB(req models.Business) models.Busi
 func (db *proximityDBService) PublishNewBusinessToDB(req models.Business) models.Business {
 	err := db.DB.QueryRow(INSERTQUERY, req.Name, req.Location.Latitude, req.Location.Longitude, req.Phone, req.City, req.State, req.ZipCode).Scan(&req.ID)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return req
 }
 
 // update user
 func (db *proximityDBService) UpdateBusinessInDB(req models.Business) models.Business {
-	var u models.Business
-	_, err := db.DB.Exec(UPDATEQUERY, &u.ID, &u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode)
+	_, err := db.DB.Exec(UPDATEQUERY, &req.ID, &req.Name, &req.Location.Latitude, &req.Location.Longitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	return req
 }
 
 // delete user
 func (db *proximityDBService) DeleteBusinessFromDB(req models.Business) models.Business {
-	var u models.Business
-	err := db.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&u.ID, &u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode)
+	err := db.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&req.ID, &req.Name, &req.Location.Latitude, &req.Location.Longitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
 	if err != nil {
 		return models.Business{}
 	} else {

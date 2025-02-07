@@ -16,7 +16,7 @@ func ListAllBusiness(writer http.ResponseWriter, request *http.Request) {
 	resp := api.ListAllBusiness()
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
-		log.Fatalln("There was an error encoding the initialized struct")
+		log.Println("There was an error encoding the initialized struct")
 	}
 }
 func CreateBusiness(writer http.ResponseWriter, request *http.Request) {
@@ -25,14 +25,14 @@ func CreateBusiness(writer http.ResponseWriter, request *http.Request) {
 	var req models.Business
 	err := json.NewDecoder(request.Body).Decode(&req)
 	if err != nil {
-		log.Fatalln("There was an error decoding the request body into the struct")
+		log.Println("There was an error decoding the request body into the struct")
 	}
 
 	resp := api.CreateBusiness(req)
 
 	err = json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
-		log.Fatalln("There was an error encoding the initialized struct")
+		log.Println("There was an error encoding the initialized struct")
 	}
 }
 func UpdateBusiness(writer http.ResponseWriter, request *http.Request) {
@@ -41,12 +41,12 @@ func UpdateBusiness(writer http.ResponseWriter, request *http.Request) {
 	var req models.Business
 	err := json.NewDecoder(request.Body).Decode(&req)
 	if err != nil {
-		log.Fatalln("There was an error decoding the request body into the struct")
+		log.Println("There was an error decoding the request body into the struct")
 	}
 	resp := api.UpdateBusiness(req)
 	err = json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
-		log.Fatalln("There was an error encoding the initialized struct")
+		log.Println("There was an error encoding the initialized struct")
 	}
 }
 func DeleteBusiness(writer http.ResponseWriter, request *http.Request) {
@@ -61,7 +61,7 @@ func DeleteBusiness(writer http.ResponseWriter, request *http.Request) {
 
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
-		log.Fatalln("There was an error encoding the initialized struct")
+		log.Println("There was an error encoding the initialized struct")
 	}
 }
 func GetBusiness(writer http.ResponseWriter, request *http.Request) {
@@ -76,7 +76,7 @@ func GetBusiness(writer http.ResponseWriter, request *http.Request) {
 
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
-		log.Fatalln("There was an error encoding the initialized struct")
+		log.Println("There was an error encoding the initialized struct")
 	}
 }
 
@@ -86,13 +86,13 @@ func GetNearbyBusinesses(writer http.ResponseWriter, request *http.Request) {
 	var req models.NearbySearchRequest
 	err := json.NewDecoder(request.Body).Decode(&req)
 	if err != nil {
-		log.Fatalln("There was an error decoding the request body into the struct")
+		log.Println("There was an error decoding the request body into the struct")
 	}
 
 	resp := api.GetNearbyBusinesses(req)
 
 	err = json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
-		log.Fatalln("There was an error encoding the initialized struct")
+		log.Println("There was an error encoding the initialized struct")
 	}
 }
