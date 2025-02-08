@@ -6,7 +6,7 @@ Proximity Service is a high-performance location indexing system built using **G
 ## 📌 Features
 
 - ✅ **CRUD for Businesses** – Add, update, delete, and retrieve business locations  
-- ✅ **Quad Tree Indexing** – Efficiently store and query spatial data (WIP) 
+- ✅ **Quad Tree Indexing** – Efficiently store and query spatial data
 - ✅ **Nearby Search** – Fetch businesses closest to a user's location  
 - ✅ **PostgreSQL Integration** – Store business data in a relational database  
 - ✅ **Docker & Docker Compose** – Easily deploy with PostgreSQL  
@@ -54,8 +54,7 @@ docker-compose down
 ### Request structure for POST, PUT
 ```json
 {
-    "id": 1,
-    "name": "John Doe",
+    "name": "Biryani By handi",
     "location": {
         "longitude": 37.7749,
         "latitude": -122.4194
