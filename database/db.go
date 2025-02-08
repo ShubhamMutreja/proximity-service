@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"proximityService/models"
+	quadtreeservice "proximityService/quadTreeService"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 type proximityDBService struct {
-	QT interface{}
+	QT quadtreeservice.QuadTree
 	DB *sql.DB
 }
 
@@ -42,11 +43,7 @@ var (
 	DBNAME  string = "businessdata"
 )
 
-func InitQuadTree() interface{} {
-	return nil
-}
 func InitDataBase() *sql.DB {
-	//connStr := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", UNAMEDB, PASSDB, HOSTDB, DBNAME)
 	connStr := "postgres://postgres:postgres123@localhost:5432/db?sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -63,7 +60,7 @@ func InitDataBase() *sql.DB {
 	log.Print("database running")
 	return db
 }
-func NewDBService(qT interface{}, dB *sql.DB) ProximityDBService {
+func NewDBService(qT quadtreeservice.QuadTree, dB *sql.DB) ProximityDBService {
 	dataStore = proximityDBService{
 		QT: qT,
 		DB: dB,
@@ -91,6 +88,7 @@ func (db *proximityDBService) GetAllBusinessesFromDB() []models.Business {
 	if err := rows.Err(); err != nil {
 		log.Println(err)
 	}
+	db.QT.UpdateQuadTree(businesses)
 	return businesses
 }
 
@@ -110,6 +108,7 @@ func (db *proximityDBService) PublishNewBusinessToDB(req models.Business) models
 	if err != nil {
 		log.Println(err)
 	}
+	db.QT.UpdateQuadTree([]models.Business{req})
 	return req
 }
 
@@ -138,6 +137,27 @@ func (db *proximityDBService) DeleteBusinessFromDB(req models.Business) models.B
 
 // QuadTree Opeations
 // get nearby businesses
+func InitQuadTree() quadtreeservice.QuadTree {
+	latitude := -90
+	longitude := 180
+	width := 180
+	height := 360
+	// latitude := 0
+	// longitude := 90
+	// width := 90
+	// height := 180
+	maxSize := 10
+	return *quadtreeservice.NewQuadTree(latitude, longitude, width, height, maxSize)
+}
+
 func (qt *proximityDBService) GetNearbyBusinessesFromQuadTree(req models.NearbySearchRequest) []models.Business {
-	return []models.Business{}
+	partialResponse := qt.QT.GetNearbyEntities(req)
+	var finalResponse []models.Business
+	for _, businessData := range partialResponse {
+		iD := businessData.BusinessID
+		singleBusiness := qt.GetBusinessFromDB(models.Business{ID: iD})
+		singleBusiness.Dist = &businessData.Dist
+		finalResponse = append(finalResponse, singleBusiness)
+	}
+	return finalResponse
 }

@@ -13,6 +13,7 @@ type Business struct {
 	City     string   `json:"city"`
 	State    string   `json:"state"`
 	ZipCode  string   `json:"zip_code"`
+	Dist     *float64  `json:"distance,omitempty"`
 }
 
 type NearbySearchRequest struct {
@@ -21,8 +22,9 @@ type NearbySearchRequest struct {
 }
 
 type BusinessSearch struct {
-	BusinessID int       `json:"business_id"`
-	Location   *Location `json:"location"`
+	BusinessID string   
+	Location   Location
+	Dist       float64
 }
 
 type BusinessResponse struct {

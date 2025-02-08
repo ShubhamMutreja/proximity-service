@@ -13,6 +13,18 @@ func ListAllBusiness() models.BusinessResponse {
 	resp.Businesses = data
 	return resp
 }
+
+func BulkCreateBusiness(reqs []models.Business) models.BusinessResponse {
+	svc := database.GetDataStore()
+	var resp models.BusinessResponse
+	resp.Action = "The Following Businesses Has Been Succesfully Registered"
+	for _, req := range reqs {
+		data := svc.PublishNewBusinessToDB(req)
+		resp.Businesses = append(resp.Businesses, data)
+	}
+	return resp
+}
+
 func CreateBusiness(req models.Business) models.BusinessResponse {
 	svc := database.GetDataStore()
 	data := svc.PublishNewBusinessToDB(req)
@@ -22,6 +34,7 @@ func CreateBusiness(req models.Business) models.BusinessResponse {
 	resp.Businesses = append(resp.Businesses, data)
 	return resp
 }
+
 func UpdateBusiness(req models.Business) models.BusinessResponse {
 	svc := database.GetDataStore()
 	data := svc.UpdateBusinessInDB(req)
@@ -31,6 +44,7 @@ func UpdateBusiness(req models.Business) models.BusinessResponse {
 	resp.Businesses = append(resp.Businesses, data)
 	return resp
 }
+
 func DeleteBusiness(req models.Business) models.BusinessResponse {
 	svc := database.GetDataStore()
 	data := svc.DeleteBusinessFromDB(req)
@@ -40,6 +54,7 @@ func DeleteBusiness(req models.Business) models.BusinessResponse {
 	resp.Businesses = append(resp.Businesses, data)
 	return resp
 }
+
 func GetBusiness(req models.Business) models.BusinessResponse {
 	svc := database.GetDataStore()
 	data := svc.GetBusinessFromDB(req)
