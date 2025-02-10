@@ -1,6 +1,7 @@
 # Proximity Service (Quad Tree Based Location Indexing) (WIP)
 
 Proximity Service is a high-performance location indexing system built using **Go**, **PostgreSQL**, and **Docker**. It efficiently stores, updates, and retrieves business locations using a **Quad Tree** data structure.
+![image](https://github.com/user-attachments/assets/7a44100b-c38e-46f6-93cb-568b09904e73)
 
 ## 📌 Features
 
