@@ -2,6 +2,8 @@ package base
 
 import (
 	"encoding/json"
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,9 +12,31 @@ import (
 	"strconv"
 )
 
+type ProximityService struct {
+	Router     *mux.Router
+	Logger     *log.Logger
+	ApiService api.Service
+}
+
+func (ps *ProximityService) InitRoutesAndStartServer(addr string) {
+	//For business
+	ps.Router.HandleFunc("/businesses", ps.ListAllBusiness).Methods("GET")
+	ps.Router.HandleFunc("/business/", ps.GetBusiness).Methods("GET")
+	ps.Router.HandleFunc("/business/create", ps.CreateBusiness).Methods("POST")
+	ps.Router.HandleFunc("/business/bulkcreate", ps.BulkCreateBusiness).Methods("POST")
+	ps.Router.HandleFunc("/business/update", ps.UpdateBusiness).Methods("PUT")
+	ps.Router.HandleFunc("/business/delete", ps.DeleteBusiness).Methods("DELETE")
+
+	//For users
+	ps.Router.HandleFunc("/search/nearby", ps.GetNearbyBusinesses).Methods("GET")
+
+	loggedRouter := handlers.LoggingHandler(ps.Logger.Writer(), ps.Router)
+	ps.Logger.Fatal(http.ListenAndServe(addr, loggedRouter))
+}
+
 // http handler funcitons
 // List all business entites present in DB
-func ListAllBusiness(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) ListAllBusiness(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	params, _ := url.ParseQuery(request.URL.RawQuery)
@@ -22,7 +46,7 @@ func ListAllBusiness(writer http.ResponseWriter, request *http.Request) {
 	req.UserLocation.Longitude, _ = strconv.ParseFloat(params.Get("longitude"), 64)
 	req.Radius, _ = strconv.ParseFloat(params.Get("radius"), 64)
 
-	resp := api.ListAllBusiness(req)
+	resp := ps.ApiService.ListAllBusiness(req)
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
 		log.Println("There was an error encoding the initialized struct")
@@ -30,7 +54,7 @@ func ListAllBusiness(writer http.ResponseWriter, request *http.Request) {
 }
 
 // Publishes new business entity inside DB
-func CreateBusiness(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) CreateBusiness(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	var req models.Business
@@ -39,7 +63,7 @@ func CreateBusiness(writer http.ResponseWriter, request *http.Request) {
 		log.Println("There was an error decoding the request body into the struct")
 	}
 
-	resp := api.CreateBusiness(req)
+	resp := ps.ApiService.CreateBusiness(req)
 
 	err = json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
@@ -48,7 +72,7 @@ func CreateBusiness(writer http.ResponseWriter, request *http.Request) {
 }
 
 // Publishes businesses in bulk inside DB
-func BulkCreateBusiness(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) BulkCreateBusiness(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	var req []models.Business
@@ -57,7 +81,7 @@ func BulkCreateBusiness(writer http.ResponseWriter, request *http.Request) {
 		log.Println("There was an error decoding the request body into the struct")
 	}
 
-	resp := api.BulkCreateBusiness(req)
+	resp := ps.ApiService.BulkCreateBusiness(req)
 
 	err = json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
@@ -66,7 +90,7 @@ func BulkCreateBusiness(writer http.ResponseWriter, request *http.Request) {
 }
 
 // Updates esisting business entity inside DB
-func UpdateBusiness(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) UpdateBusiness(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	var req models.Business
@@ -74,7 +98,7 @@ func UpdateBusiness(writer http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		log.Println("There was an error decoding the request body into the struct")
 	}
-	resp := api.UpdateBusiness(req)
+	resp := ps.ApiService.UpdateBusiness(req)
 	err = json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
 		log.Println("There was an error encoding the initialized struct")
@@ -82,7 +106,7 @@ func UpdateBusiness(writer http.ResponseWriter, request *http.Request) {
 }
 
 // Deletes existing business entity inside DB
-func DeleteBusiness(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) DeleteBusiness(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 
@@ -90,7 +114,7 @@ func DeleteBusiness(writer http.ResponseWriter, request *http.Request) {
 	var req models.Business
 	req.ID = params.Get("ID")
 
-	resp := api.DeleteBusiness(req)
+	resp := ps.ApiService.DeleteBusiness(req)
 
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
@@ -99,7 +123,7 @@ func DeleteBusiness(writer http.ResponseWriter, request *http.Request) {
 }
 
 // Returns a business by using ID
-func GetBusiness(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) GetBusiness(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 
@@ -107,7 +131,7 @@ func GetBusiness(writer http.ResponseWriter, request *http.Request) {
 	var req models.Business
 	req.ID = params.Get("ID")
 
-	resp := api.GetBusiness(req)
+	resp := ps.ApiService.GetBusiness(req)
 
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {
@@ -116,7 +140,7 @@ func GetBusiness(writer http.ResponseWriter, request *http.Request) {
 }
 
 // Returns nearby businesses by using user location and radius
-func GetNearbyBusinesses(writer http.ResponseWriter, request *http.Request) {
+func (ps *ProximityService) GetNearbyBusinesses(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 
@@ -127,7 +151,7 @@ func GetNearbyBusinesses(writer http.ResponseWriter, request *http.Request) {
 	req.UserLocation.Longitude, _ = strconv.ParseFloat(params.Get("longitude"), 64)
 	req.Radius, _ = strconv.ParseFloat(params.Get("radius"), 64)
 
-	resp := api.GetNearbyBusinesses(req)
+	resp := ps.ApiService.GetNearbyBusinesses(req)
 
 	err := json.NewEncoder(writer).Encode(&resp)
 	if err != nil {

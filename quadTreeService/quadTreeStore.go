@@ -6,7 +6,7 @@ import (
 )
 
 type Node struct {
-	//Box starting points
+	//Rectangle origin
 	startLatitude  float64
 	startLongitude float64
 
