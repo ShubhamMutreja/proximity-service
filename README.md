@@ -48,8 +48,8 @@ docker-compose down
 | GET | /businesses   | List all businesses   |
 | GET | /business/   | Get a business by ID (?id=<business_id>)   |
 | POST | /business/create   | Create a new business   |
-| PUT | /business/update   | Update an existing business (ID required)   |
-| DELETE | /business/delete   | Delete a business by ID   |
+| PUT | /business/update   | Update an existing business )   |
+| DELETE | /business/delete   | Delete a business by ID  (?id=<business_id>) |
 
 ### Request structure for POST, PUT
 ```json
@@ -70,14 +70,14 @@ docker-compose down
   
 | Method | Endpoint    | Description   |
 | :---:  | :---: | :---: |
-| GET | /search/nearby   | Get businesses near a user location  |
+| GET | /search/nearby   | Get businesses near a user location (?latitude=<userLatitude>&id=<userLongitude&radius=<radius> ) |
 
 
 ## 🏗️ Technologies Used
 - Golang – Backend API
 - PostgreSQL – Database for storing businesses
 - Docker & Docker Compose – Containerized deployment
-- Quad Tree Algorithm – Efficient spatial search
+- Quad Tree Service – Efficient spatial search
 
 ## 🎯 Future Enhancements
 - ✅ UI for business registration and search
