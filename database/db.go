@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"log"
 	"proximityService/models"
-	quadtreeservice "proximityService/quadTreeService"
 	"slices"
+
+	quadtreeservice "proximityService/quadTreeService"
 )
 
 const (

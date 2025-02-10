@@ -3,12 +3,12 @@ package main
 import (
 	"log"
 	"os"
+
+	"github.com/gorilla/mux"
+
 	"proximityService/api"
 	"proximityService/base"
 	"proximityService/database"
-
-	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
 )
 
 func main() {

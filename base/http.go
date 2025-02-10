@@ -2,14 +2,16 @@ package base
 
 import (
 	"encoding/json"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
+
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+
 	"proximityService/api"
 	"proximityService/models"
-	"strconv"
 )
 
 type ProximityService struct {

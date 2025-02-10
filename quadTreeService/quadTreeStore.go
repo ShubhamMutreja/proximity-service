@@ -2,6 +2,7 @@ package quadtreeservice
 
 import (
 	"math"
+
 	"proximityService/models"
 )
 
