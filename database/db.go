@@ -6,6 +6,8 @@ import (
 	"proximityService/models"
 	"slices"
 
+	_ "github.com/lib/pq"
+
 	quadtreeservice "proximityService/quadTreeService"
 )
 
@@ -32,13 +34,6 @@ type ProximityDBService interface {
 	GetNearbyBusinessesFromQuadTree(req models.NearbySearchRequest) []models.Business
 }
 
-var (
-	UNAMEDB string = "postgres"
-	PASSDB  string = "postgres123"
-	HOSTDB  string = "postgres"
-	DBNAME  string = "businessdata"
-)
-
 func InitDataBase() *sql.DB {
 	connStr := "postgres://postgres:postgres123@localhost:5432/postgres?sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
@@ -55,6 +50,18 @@ func InitDataBase() *sql.DB {
 	}
 	log.Print("database running")
 	return db
+}
+
+// QuadTree Opeations
+// get nearby businesses
+func InitQuadTree() quadtreeservice.QuadTree {
+	//latitude range is from -90 to 90 and longitude range is from -180 to 180
+	startLatitude := -90.0
+	startLongitude := -180.0
+	width := 180.0
+	height := 360.0
+	maxSizeAtLeafNodes := 3
+	return *quadtreeservice.NewQuadTree(startLatitude, startLongitude, width, height, maxSizeAtLeafNodes)
 }
 
 func NewDBService(qT quadtreeservice.QuadTree, dB *sql.DB) ProximityDBService {
@@ -123,18 +130,20 @@ func (ds *proximityDBService) PublishNewBusinessToDB(req models.Business) models
 
 // update user
 func (ds *proximityDBService) UpdateBusinessInDB(req models.Business) models.Business {
-	_, err := ds.DB.Exec(UPDATEQUERY, &req.ID, &req.Name, &req.Location.Latitude, &req.Location.Longitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
+	err := ds.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&req.ID, &req.Name, &req.Location.Longitude, &req.Location.Latitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
+	ds.QT.DeleteFromQuadTree([]models.Business{req})
+
+	_, err = ds.DB.Exec(UPDATEQUERY, &req.ID, &req.Name, &req.Location.Latitude, &req.Location.Longitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
 	if err != nil {
 		log.Println(err)
 	}
-	ds.QT.UpdateQuadTree([]models.Business{req})
 	ds.QT.UpdateQuadTree([]models.Business{req})
 	return req
 }
 
 // delete user
 func (ds *proximityDBService) DeleteBusinessFromDB(req models.Business) models.Business {
-	err := ds.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&req.ID, &req.Name, &req.Location.Latitude, &req.Location.Longitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
+	err := ds.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&req.ID, &req.Name, &req.Location.Longitude, &req.Location.Latitude, &req.Phone, &req.City, &req.State, &req.ZipCode)
 	if err != nil {
 		return models.Business{}
 	} else {
@@ -143,18 +152,8 @@ func (ds *proximityDBService) DeleteBusinessFromDB(req models.Business) models.B
 			return models.Business{}
 		}
 	}
+	ds.QT.DeleteFromQuadTree([]models.Business{req})
 	return req
-}
-
-// QuadTree Opeations
-// get nearby businesses
-func InitQuadTree() quadtreeservice.QuadTree {
-	latitude := -90.0
-	longitude := -180.0
-	width := 180.0
-	height := 360.0
-	maxSize := 3
-	return *quadtreeservice.NewQuadTree(latitude, longitude, width, height, maxSize)
 }
 
 func (ds *proximityDBService) GetNearbyBusinessesFromQuadTree(req models.NearbySearchRequest) []models.Business {

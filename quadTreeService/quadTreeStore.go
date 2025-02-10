@@ -16,7 +16,7 @@ type Node struct {
 	height float64
 
 	//Store list of Businesses
-	listOfBusinesses []models.BusinessSearch
+	listOfBusinesses map[string]models.BusinessSearch
 
 	//QuadTree's 4 Children or 4 equally divided rectangles
 	topLeftChild     *Node
@@ -152,22 +152,60 @@ func (quadTreeNode *Node) InsertNewNode(businessData models.BusinessSearch) {
 		return
 	}
 
+	//takes care of panics in case map is nil
+	if quadTreeNode.listOfBusinesses == nil {
+		emptyMap := make(map[string]models.BusinessSearch)
+		quadTreeNode.listOfBusinesses = emptyMap
+	}
 	//node is a leaf.
 	if len(quadTreeNode.listOfBusinesses) < 5 {
-		quadTreeNode.listOfBusinesses = append(quadTreeNode.listOfBusinesses, businessData)
+		if _, ok := quadTreeNode.listOfBusinesses[businessData.BusinessID]; !ok {
+			quadTreeNode.listOfBusinesses[businessData.BusinessID] = businessData
+		}
 		return
 	}
 	// too many businesses on this leaf node, time to divide this node to 4 children
 	quadTreeNode.divideIntoFourBoxes()
-	quadTreeNode.listOfBusinesses = append(quadTreeNode.listOfBusinesses, businessData)
+	if _, ok := quadTreeNode.listOfBusinesses[businessData.BusinessID]; !ok {
+		quadTreeNode.listOfBusinesses[businessData.BusinessID] = businessData
+	}
 	for _, e := range quadTreeNode.listOfBusinesses {
 		quadTreeNode.topLeftChild.InsertNewNode(e)
 		quadTreeNode.topRightChild.InsertNewNode(e)
 		quadTreeNode.bottomLeftChild.InsertNewNode(e)
 		quadTreeNode.bottomRightChild.InsertNewNode(e)
 	}
-	//clear the list as only leaf nodes have this list
-	quadTreeNode.listOfBusinesses = []models.BusinessSearch{}
+	//clear the map as only leaf nodes have this list
+	emptyMap := make(map[string]models.BusinessSearch)
+	quadTreeNode.listOfBusinesses = emptyMap
+}
+
+func (quadTreeNode *Node) DeleteNode(businessData models.BusinessSearch) bool {
+	if quadTreeNode.isThisNodeChild() {
+		for _, business := range quadTreeNode.listOfBusinesses {
+			if business.BusinessID == businessData.BusinessID {
+				delete(quadTreeNode.listOfBusinesses, business.BusinessID)
+				return true
+			}
+		}
+		return false
+	}
+
+	var res bool
+	if quadTreeNode.topLeftChild != nil && quadTreeNode.topLeftChild.isLocationWithinBoundingBox(businessData.Location) {
+		res = res || quadTreeNode.topLeftChild.DeleteNode(businessData)
+	}
+	if quadTreeNode.topRightChild != nil && quadTreeNode.topRightChild.isLocationWithinBoundingBox(businessData.Location) {
+		res = res || quadTreeNode.topRightChild.DeleteNode(businessData)
+	}
+	if quadTreeNode.bottomLeftChild != nil && quadTreeNode.bottomLeftChild.isLocationWithinBoundingBox(businessData.Location) {
+		res = res || quadTreeNode.bottomLeftChild.DeleteNode(businessData)
+	}
+	if quadTreeNode.bottomRightChild != nil && quadTreeNode.bottomRightChild.isLocationWithinBoundingBox(businessData.Location) {
+		res = res || quadTreeNode.bottomRightChild.DeleteNode(businessData)
+	}
+	return res
+
 }
 
 func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location, searchRadius float64) []models.BusinessSearch {
@@ -184,7 +222,9 @@ func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location,
 
 	// Check businesses in this node
 	for _, business := range quadTreeNode.listOfBusinesses {
-		if haversine(userLoc.Latitude, userLoc.Longitude, business.Location.Latitude, business.Location.Longitude) <= searchRadius {
+		distFromUser := haversine(userLoc.Latitude, userLoc.Longitude, business.Location.Latitude, business.Location.Longitude)
+		if distFromUser <= searchRadius {
+			business.Dist = distFromUser
 			results = append(results, business)
 		}
 	}
@@ -213,10 +253,15 @@ func (qT *QuadTree) UpdateQuadTree(listOfBusinessesInDB []models.Business) {
 		var businessQT models.BusinessSearch
 		businessQT.Location = businessDB.Location
 		businessQT.BusinessID = businessDB.ID
-		businessQT.Dist = GetDistance(businessQT.Location, models.Location{
-			Longitude: 76.903872,
-			Latitude:  28.842158,
-		})
 		qT.quadTreeNode.InsertNewNode(businessQT)
+	}
+}
+
+func (qT *QuadTree) DeleteFromQuadTree(listOfBusinessesInDB []models.Business) {
+	for _, businessDB := range listOfBusinessesInDB {
+		var businessQT models.BusinessSearch
+		businessQT.Location = businessDB.Location
+		businessQT.BusinessID = businessDB.ID
+		qT.quadTreeNode.DeleteNode(businessQT)
 	}
 }
