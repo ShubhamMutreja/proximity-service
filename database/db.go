@@ -2,7 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"os"
 	"proximityService/models"
 	"slices"
 
@@ -35,12 +37,11 @@ type ProximityDBService interface {
 }
 
 func InitDataBase() *sql.DB {
-	connStr := "postgres://postgres:postgres123@localhost:5432/postgres?sslmode=disable"
+	connStr := fmt.Sprintf("postgres://postgres:%s@%s/%s?sslmode=disable", os.Getenv("POSTGRES_PASSWORD"), os.Getenv("POSTGRES_HOST"), os.Getenv("POSTGRES_DB"))
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	//defer db.Close()
 
 	//create the table if it doesn't exist
 	_, err = db.Exec(CREATETABLE)

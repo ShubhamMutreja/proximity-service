@@ -7,8 +7,9 @@ services:
       - "5432:5432"
     restart: always
     environment:
-      POSTGRES_DB: "db"
+      POSTGRES_DB: "postgres"
       POSTGRES_PASSWORD: "postgres123"
+      POSTGRES_HOST: "postgres"
     volumes:
       - database:/var/lib/postgresql/data
       - ./dbshell:/docker-entrypoint-initdb.d/
@@ -19,8 +20,12 @@ services:
     container_name: proximityservice
     build: .
     ports:
-      - "8000:8000"
+      - "8080:8080"
     restart: always
+    environment:
+      POSTGRES_DB: "postgres"
+      POSTGRES_PASSWORD: "postgres123"
+      POSTGRES_HOST: "postgres"
     volumes:
       - api_volume:/usr/src/app/
     depends_on:
