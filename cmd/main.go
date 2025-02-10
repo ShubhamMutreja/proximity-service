@@ -17,7 +17,7 @@ func main() {
 
 	dB := database.InitDataBase()
 	qT := database.InitQuadTree()
-	//defer dB.Close()
+	defer dB.Close()
 
 	dbSvc := database.NewDBService(qT, dB)
 
