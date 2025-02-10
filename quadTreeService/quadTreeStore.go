@@ -19,10 +19,7 @@ type Node struct {
 	listOfBusinesses map[string]models.BusinessSearch
 
 	//QuadTree's 4 Children or 4 equally divided rectangles
-	topLeftChild     *Node
-	topRightChild    *Node
-	bottomLeftChild  *Node
-	bottomRightChild *Node
+	listOfChildren []*Node
 }
 
 type QuadTree struct {
@@ -33,23 +30,23 @@ type QuadTree struct {
 // Use haversine instead of euclidian distance for longitudes and latitudes
 func haversine(sourceLatitudeDegrees, sourceLongitudeDegrees, destLatitudeDegrees, destLongitudeDegrees float64) float64 {
 	//Radius of Earth
-	const R = 6371
+	const earthRadiusKm = 6371
 
 	sourceLatitudeRadians := sourceLatitudeDegrees * (math.Pi / 180)
 	sourceLongitudeRadians := sourceLongitudeDegrees * (math.Pi / 180)
 	destLatitudeRadians := destLatitudeDegrees * (math.Pi / 180)
 	destLongitudeRadians := destLongitudeDegrees * (math.Pi / 180)
 
-	dLat := destLatitudeRadians - sourceLatitudeRadians
-	dLon := destLongitudeRadians - sourceLongitudeRadians
+	deltaLat := destLatitudeRadians - sourceLatitudeRadians
+	deltaLon := destLongitudeRadians - sourceLongitudeRadians
 
-	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+	havFormula := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
 		math.Cos(sourceLatitudeRadians)*math.Cos(destLatitudeRadians)*
-			math.Sin(dLon/2)*math.Sin(dLon/2)
+			math.Sin(deltaLon/2)*math.Sin(deltaLon/2)
 
-	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	centralAngle := 2 * math.Atan2(math.Sqrt(havFormula), math.Sqrt(1-havFormula))
 
-	return R * c
+	return earthRadiusKm * centralAngle
 }
 
 func GetDistance(sourceLocation, destLocation models.Location) float64 {
@@ -96,31 +93,33 @@ func (quadTreeNode *Node) divideIntoFourBoxes() {
 	//Dividing parent node into 4 children
 	newHeight := quadTreeNode.height / 2
 	newWidth := quadTreeNode.width / 2
+	listOfChildrenNodes := make([]*Node, 4)
 
-	quadTreeNode.topLeftChild = &Node{
+	listOfChildrenNodes[0] = &Node{
 		startLatitude:  startLatitude,
 		startLongitude: startLongitude,
 		width:          newWidth,
 		height:         newHeight,
 	}
-	quadTreeNode.topRightChild = &Node{
+	listOfChildrenNodes[1] = &Node{
 		startLatitude:  startLatitude + newWidth,
 		startLongitude: startLongitude,
 		width:          quadTreeNode.width - newWidth,
 		height:         newHeight,
 	}
-	quadTreeNode.bottomLeftChild = &Node{
+	listOfChildrenNodes[2] = &Node{
 		startLatitude:  startLatitude,
 		startLongitude: startLongitude + newHeight,
 		width:          newWidth,
 		height:         quadTreeNode.height - newHeight,
 	}
-	quadTreeNode.bottomRightChild = &Node{
+	listOfChildrenNodes[3] = &Node{
 		startLatitude:  startLatitude + newWidth,
 		startLongitude: startLongitude + newHeight,
 		width:          quadTreeNode.width - newWidth,
 		height:         quadTreeNode.height - newHeight,
 	}
+	quadTreeNode.listOfChildren = listOfChildrenNodes
 }
 
 func (quadTreeNode *Node) canNewNodeBeInserted(business models.BusinessSearch) bool {
@@ -134,24 +133,15 @@ func (quadTreeNode *Node) InsertNewNode(businessData models.BusinessSearch) {
 	if !quadTreeNode.isLocationWithinBoundingBox(businessData.Location) {
 		return
 	}
-
 	//Node is not a leaf. So we will check for which children we can add more nodes
 	if !quadTreeNode.isThisNodeChild() {
-		if quadTreeNode.topLeftChild.canNewNodeBeInserted(businessData) {
-			quadTreeNode.topLeftChild.InsertNewNode(businessData)
-		}
-		if quadTreeNode.topRightChild.canNewNodeBeInserted(businessData) {
-			quadTreeNode.topRightChild.InsertNewNode(businessData)
-		}
-		if quadTreeNode.bottomLeftChild.canNewNodeBeInserted(businessData) {
-			quadTreeNode.bottomLeftChild.InsertNewNode(businessData)
-		}
-		if quadTreeNode.bottomRightChild.canNewNodeBeInserted(businessData) {
-			quadTreeNode.bottomRightChild.InsertNewNode(businessData)
+		for _, childNode := range quadTreeNode.listOfChildren {
+			if childNode.canNewNodeBeInserted(businessData) {
+				childNode.InsertNewNode(businessData)
+			}
 		}
 		return
 	}
-
 	//takes care of panics in case map is nil
 	if quadTreeNode.listOfBusinesses == nil {
 		emptyMap := make(map[string]models.BusinessSearch)
@@ -170,14 +160,14 @@ func (quadTreeNode *Node) InsertNewNode(businessData models.BusinessSearch) {
 		quadTreeNode.listOfBusinesses[businessData.BusinessID] = businessData
 	}
 	for _, e := range quadTreeNode.listOfBusinesses {
-		quadTreeNode.topLeftChild.InsertNewNode(e)
-		quadTreeNode.topRightChild.InsertNewNode(e)
-		quadTreeNode.bottomLeftChild.InsertNewNode(e)
-		quadTreeNode.bottomRightChild.InsertNewNode(e)
+		for _, childNode := range quadTreeNode.listOfChildren {
+			childNode.InsertNewNode(e)
+		}
 	}
-	//clear the map as only leaf nodes have this list
+	//clear the map as only leaf nodes have this filled
 	emptyMap := make(map[string]models.BusinessSearch)
 	quadTreeNode.listOfBusinesses = emptyMap
+	return
 }
 
 func (quadTreeNode *Node) DeleteNode(businessData models.BusinessSearch) bool {
@@ -190,19 +180,11 @@ func (quadTreeNode *Node) DeleteNode(businessData models.BusinessSearch) bool {
 		}
 		return false
 	}
-
 	var res bool
-	if quadTreeNode.topLeftChild != nil && quadTreeNode.topLeftChild.isLocationWithinBoundingBox(businessData.Location) {
-		res = res || quadTreeNode.topLeftChild.DeleteNode(businessData)
-	}
-	if quadTreeNode.topRightChild != nil && quadTreeNode.topRightChild.isLocationWithinBoundingBox(businessData.Location) {
-		res = res || quadTreeNode.topRightChild.DeleteNode(businessData)
-	}
-	if quadTreeNode.bottomLeftChild != nil && quadTreeNode.bottomLeftChild.isLocationWithinBoundingBox(businessData.Location) {
-		res = res || quadTreeNode.bottomLeftChild.DeleteNode(businessData)
-	}
-	if quadTreeNode.bottomRightChild != nil && quadTreeNode.bottomRightChild.isLocationWithinBoundingBox(businessData.Location) {
-		res = res || quadTreeNode.bottomRightChild.DeleteNode(businessData)
+	for _, childNode := range quadTreeNode.listOfChildren {
+		if childNode != nil && childNode.isLocationWithinBoundingBox(businessData.Location) {
+			res = res || childNode.DeleteNode(businessData)
+		}
 	}
 	return res
 
@@ -210,7 +192,6 @@ func (quadTreeNode *Node) DeleteNode(businessData models.BusinessSearch) bool {
 
 func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location, searchRadius float64) []models.BusinessSearch {
 	var results []models.BusinessSearch
-
 	if quadTreeNode == nil {
 		return results
 	}
@@ -230,17 +211,15 @@ func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location,
 	}
 
 	// Recursively check child nodes
-	results = append(results, quadTreeNode.topLeftChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
-	results = append(results, quadTreeNode.topRightChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
-	results = append(results, quadTreeNode.bottomLeftChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
-	results = append(results, quadTreeNode.bottomRightChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
+	for _, childNode := range quadTreeNode.listOfChildren {
+		results = append(results, childNode.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
+	}
 
 	return results
 }
 
 func (quadTreeNode *Node) isThisNodeChild() bool {
-	return quadTreeNode.topLeftChild == nil && quadTreeNode.topRightChild == nil &&
-		quadTreeNode.bottomLeftChild == nil && quadTreeNode.bottomRightChild == nil
+	return quadTreeNode.listOfChildren == nil || len(quadTreeNode.listOfChildren) == 0
 }
 
 func (qT *QuadTree) GetNearbyEntities(req models.NearbySearchRequest) []models.BusinessSearch {

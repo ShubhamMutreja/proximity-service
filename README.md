@@ -27,7 +27,7 @@ Make sure you have the following installed:
 ```sh
 git clone https://github.com/your-username/proximity-service.git
 cd proximity-service
-docker-compose up --build
+docker compose up -d --build .
 ```
 This will:
 
@@ -37,18 +37,18 @@ This will:
 
 To stop the service, run:
 ```sh
-docker-compose down
+docker compose down
 ```
 
 ## 🔗 API Endpoints
 - 📍 Business Management (CRUD)
 
-| Method | Endpoint    | Description   |
-| :---:   | :---: | :---: |
-| GET | /businesses   | List all businesses   |
-| GET | /business/   | Get a business by ID (?id=<business_id>)   |
-| POST | /business/create   | Create a new business   |
-| PUT | /business/update   | Update an existing business )   |
+| Method | Endpoint    |                 Description                  |
+| :---:   | :---: |:--------------------------------------------:|
+| GET | /businesses   |             List all businesses              |
+| GET | /business/   |   Get a business by ID (?id=<business_id>)   |
+| POST | /business/create   |            Create a new business             |
+| PUT | /business/update   |         Update an existing business          |
 | DELETE | /business/delete   | Delete a business by ID  (?id=<business_id>) |
 
 ### Request structure for POST, PUT
@@ -82,4 +82,4 @@ docker-compose down
 ## 🎯 Future Enhancements
 - ✅ UI for business registration and search
 - ✅ Advanced caching mechanisms
-- ✅ Machine Learning for business recommendations
+- ✅ Realtime updating QuadTree for Movable business like food trucks or even Cabs/Taxis
