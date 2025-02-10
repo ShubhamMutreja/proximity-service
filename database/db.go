@@ -5,6 +5,7 @@ import (
 	"log"
 	"proximityService/models"
 	quadtreeservice "proximityService/quadTreeService"
+	"slices"
 )
 
 const (
@@ -24,7 +25,7 @@ type proximityDBService struct {
 var dataStore proximityDBService
 
 type ProximityDBService interface {
-	GetAllBusinessesFromDB() []models.Business
+	GetAllBusinessesFromDB(req models.NearbySearchRequest) []models.Business
 	GetBusinessFromDB(req models.Business) models.Business
 	PublishNewBusinessToDB(req models.Business) models.Business
 	UpdateBusinessInDB(req models.Business) models.Business
@@ -44,7 +45,7 @@ var (
 )
 
 func InitDataBase() *sql.DB {
-	connStr := "postgres://postgres:postgres123@localhost:5432/db?sslmode=disable"
+	connStr := "postgres://postgres:postgres123@localhost:5432/postgres?sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
@@ -70,7 +71,7 @@ func NewDBService(qT quadtreeservice.QuadTree, dB *sql.DB) ProximityDBService {
 
 // Database operations
 // get all users
-func (db *proximityDBService) GetAllBusinessesFromDB() []models.Business {
+func (db *proximityDBService) GetAllBusinessesFromDB(req models.NearbySearchRequest) []models.Business {
 	rows, err := db.DB.Query(SELECTALLQUERY)
 	if err != nil {
 		log.Println(err)
@@ -80,22 +81,35 @@ func (db *proximityDBService) GetAllBusinessesFromDB() []models.Business {
 	businesses := []models.Business{}
 	for rows.Next() {
 		var u models.Business
-		if err := rows.Scan(&u.ID, &u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode); err != nil {
+		if err := rows.Scan(&u.ID, &u.Name, &u.Location.Longitude, &u.Location.Latitude, &u.Phone, &u.City, &u.State, &u.ZipCode); err != nil {
 			log.Println(err)
 		}
-		businesses = append(businesses, u)
+		dist := quadtreeservice.GetDistance(req.UserLocation, u.Location)
+		u.Dist = &dist
+		if dist <= req.Radius {
+			businesses = append(businesses, u)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		log.Println(err)
 	}
-	db.QT.UpdateQuadTree(businesses)
+	slices.SortFunc(businesses, func(a, b models.Business) int {
+		if *a.Dist-*b.Dist < 0 {
+			return -1
+		} else if *a.Dist-*b.Dist > 0 {
+			return 1
+		} else {
+			return 0
+		}
+	})
+	//db.QT.UpdateQuadTree(businesses)
 	return businesses
 }
 
 // get user by id
 func (db *proximityDBService) GetBusinessFromDB(req models.Business) models.Business {
 	var u models.Business
-	err := db.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&u.ID, &u.Name, &u.Location.Latitude, &u.Location.Longitude, &u.Phone, &u.City, &u.State, &u.ZipCode)
+	err := db.DB.QueryRow(SELECTONEQUERY, req.ID).Scan(&u.ID, &u.Name, &u.Location.Longitude, &u.Location.Latitude, &u.Phone, &u.City, &u.State, &u.ZipCode)
 	if err != nil {
 		log.Println(err)
 	}
@@ -138,15 +152,15 @@ func (db *proximityDBService) DeleteBusinessFromDB(req models.Business) models.B
 // QuadTree Opeations
 // get nearby businesses
 func InitQuadTree() quadtreeservice.QuadTree {
-	latitude := -90
-	longitude := 180
-	width := 180
-	height := 360
-	// latitude := 0
-	// longitude := 90
-	// width := 90
-	// height := 180
-	maxSize := 10
+	//latitude := -90
+	//longitude := 180
+	//width := 180
+	//height := 360
+	latitude := -90.0
+	longitude := -180.0
+	width := 180.0
+	height := 360.0
+	maxSize := 3
 	return *quadtreeservice.NewQuadTree(latitude, longitude, width, height, maxSize)
 }
 
@@ -159,5 +173,14 @@ func (qt *proximityDBService) GetNearbyBusinessesFromQuadTree(req models.NearbyS
 		singleBusiness.Dist = &businessData.Dist
 		finalResponse = append(finalResponse, singleBusiness)
 	}
+	slices.SortFunc(finalResponse, func(a, b models.Business) int {
+		if *a.Dist-*b.Dist < 0 {
+			return -1
+		} else if *a.Dist-*b.Dist > 0 {
+			return 1
+		} else {
+			return 0
+		}
+	})
 	return finalResponse
 }

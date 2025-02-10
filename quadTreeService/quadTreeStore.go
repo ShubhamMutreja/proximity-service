@@ -7,12 +7,12 @@ import (
 
 type Node struct {
 	//Box starting points
-	startLatitude  int
-	startLongitude int
+	startLatitude  float64
+	startLongitude float64
 
 	//height and width of a Rectangle
-	width  int
-	height int
+	width  float64
+	height float64
 
 	//Store list of Businesses
 	listOfBusinesses []models.BusinessSearch
@@ -29,7 +29,7 @@ type QuadTree struct {
 	maxSizeAllowedAtLeafNodes int
 }
 
-func NewQuadTree(latitude, longitude, width, height, maxSize int) *QuadTree {
+func NewQuadTree(latitude, longitude, width, height float64, maxSize int) *QuadTree {
 	var node Node
 	node.startLatitude = latitude
 	node.startLongitude = longitude
@@ -44,8 +44,8 @@ func NewQuadTree(latitude, longitude, width, height, maxSize int) *QuadTree {
 func (qT *QuadTree) isLocationWithinBoundingBox(location models.Location, quadTreeNode *Node) bool {
 	if location.Latitude >= float64(quadTreeNode.startLatitude) &&
 		location.Latitude < float64(quadTreeNode.startLatitude)+float64(quadTreeNode.width) &&
-		location.Longitude <= float64(quadTreeNode.startLongitude) &&
-		location.Longitude > float64(quadTreeNode.startLongitude)-float64(quadTreeNode.height) {
+		location.Longitude >= float64(quadTreeNode.startLongitude) &&
+		location.Longitude < float64(quadTreeNode.startLongitude)+float64(quadTreeNode.height) {
 		return true
 	}
 	return false
@@ -74,20 +74,20 @@ func (qT *QuadTree) divideIntoFourBoxes(quadTreeNode *Node) {
 	}
 	quadTreeNode.bottomLeftChild = &Node{
 		startLatitude:  startLatitude,
-		startLongitude: startLongitude - newHeight,
+		startLongitude: startLongitude + newHeight,
 		width:          newWidth,
 		height:         quadTreeNode.height - newHeight,
 	}
 	quadTreeNode.bottomRightChild = &Node{
 		startLatitude:  startLatitude + newWidth,
-		startLongitude: startLongitude - newHeight,
+		startLongitude: startLongitude + newHeight,
 		width:          quadTreeNode.width - newWidth,
 		height:         quadTreeNode.height - newHeight,
 	}
 }
 
 func (qT *QuadTree) canNewNodeBeInserted(business models.BusinessSearch, quadTreeNodeChild *Node) bool {
-	if quadTreeNodeChild.topLeftChild != nil && qT.isLocationWithinBoundingBox(business.Location, quadTreeNodeChild.topLeftChild) {
+	if quadTreeNodeChild != nil && qT.isLocationWithinBoundingBox(business.Location, quadTreeNodeChild) {
 		return true
 	}
 	return false
@@ -131,15 +131,7 @@ func (qT *QuadTree) InsertNewNode(businessData models.BusinessSearch, quadTreeNo
 	}
 	//clear the list as only leaf nodes have this list
 	quadTreeNode.listOfBusinesses = []models.BusinessSearch{}
-}
 
-func (qT *QuadTree) UpdateQuadTree(listOfBusinessesInDB []models.Business) {
-	for _, businessDB := range listOfBusinessesInDB {
-		var businessQT models.BusinessSearch
-		businessQT.Location = businessDB.Location
-		businessQT.BusinessID = businessDB.ID
-		qT.InsertNewNode(businessQT, qT.quadTreeNode)
-	}
 }
 
 // Use haversine instead of euclidian distance for longitudes and latitudes
@@ -164,98 +156,67 @@ func haversine(sourceLatitudeDegrees, sourceLongitudeDegrees, destLatitudeDegree
 	return R * c
 }
 
-func getDistance(userLocation, businessLocation models.Location) float64 {
-	return haversine(userLocation.Latitude, userLocation.Longitude, businessLocation.Latitude, businessLocation.Longitude)
+func GetDistance(sourceLocation, destLocation models.Location) float64 {
+	d := haversine(sourceLocation.Latitude, sourceLocation.Longitude, destLocation.Latitude, destLocation.Longitude)
+	return d
 }
 
-func (qT *QuadTree) isLocationInsideRadius(node *Node, userLocation models.Location, radius float64) bool {
-	//For topLeftChild
-	x1 := float64(node.startLatitude)
-	y1 := float64(node.startLongitude)
-	dist := getDistance(models.Location{Longitude: x1, Latitude: y1}, userLocation)
-	if dist <= radius {
-		return true
-	}
+func intersects(n *Node, loc models.Location, radius float64) bool {
+	// Find closest point in the node to the search location
+	closestLat := math.Max(n.startLatitude, math.Min(loc.Latitude, n.startLatitude+n.width))
+	closestLon := math.Max(n.startLongitude, math.Min(loc.Longitude, n.startLongitude+n.height))
 
-	//For topRightChild
-	x1 = float64(node.startLatitude + node.width)
-	y1 = float64(node.startLongitude)
-	dist = getDistance(models.Location{Longitude: x1, Latitude: y1}, userLocation)
-	if dist <= radius {
-		return true
-	}
-
-	//For bottomLeftChild
-	x1 = float64(node.startLatitude)
-	y1 = float64(node.startLongitude - node.height)
-	dist = getDistance(models.Location{Longitude: x1, Latitude: y1}, userLocation)
-	if dist <= radius {
-		return true
-	}
-	//For bottomRightChild
-	x1 = float64(node.startLatitude + node.width)
-	y1 = float64(node.startLongitude - node.height)
-	dist = getDistance(models.Location{Longitude: x1, Latitude: y1}, userLocation)
-	if dist <= radius {
-		return true
-	}
-	return false
+	// Compute distance between user location and the closest point in bounding box
+	return haversine(loc.Latitude, loc.Longitude, closestLat, closestLon) <= radius
 }
 
-func (qT *QuadTree) isThisNodeChild(node *Node) bool {
-	return (node.topLeftChild == nil && node.topRightChild == nil && node.bottomLeftChild == nil && node.bottomRightChild == nil)
-}
+func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location, searchRadius float64) []models.BusinessSearch {
+	var results []models.BusinessSearch
 
-func (qT *QuadTree) isUserLocationInsideThisNodeRadius(quadTreeNodeChild *Node, userLocation models.Location, radius float64) bool {
-	if quadTreeNodeChild != nil &&
-		(qT.isLocationInsideRadius(quadTreeNodeChild, userLocation, radius) || qT.isLocationWithinBoundingBox(userLocation, quadTreeNodeChild)) {
-		return true
+	if quadTreeNode == nil {
+		return results
 	}
-	return false
-}
 
-func (qT *QuadTree) GetNearbyEntitiesFromQuadTree(userLocation models.Location, quadTreeNode *Node, radius float64) []models.BusinessSearch {
-	var response []models.BusinessSearch
-	if qT.isThisNodeChild(quadTreeNode) &&
-		(qT.isLocationInsideRadius(quadTreeNode, userLocation, radius) ||
-			qT.isLocationWithinBoundingBox(userLocation, quadTreeNode)) {
-		listOfBusinessesAtLeafNode := quadTreeNode.listOfBusinesses
-		for _, businessLocationData := range listOfBusinessesAtLeafNode {
-			distFromUser := getDistance(businessLocationData.Location, userLocation)
-			if distFromUser <= radius {
-				businessLocationData.Dist = distFromUser
-				response = append(response, businessLocationData)
-			}
+	// Check if this node's bounding box intersects with the search radius
+	if !intersects(quadTreeNode, userLoc, searchRadius) {
+		return results
+	}
+
+	// Check businesses in this node
+	for _, business := range quadTreeNode.listOfBusinesses {
+		if haversine(userLoc.Latitude, userLoc.Longitude, business.Location.Latitude, business.Location.Longitude) <= searchRadius {
+			results = append(results, business)
 		}
 	}
 
-	//search in top left child
-	if qT.isUserLocationInsideThisNodeRadius(quadTreeNode.topLeftChild, userLocation, radius) {
-		tmpResponse := qT.GetNearbyEntitiesFromQuadTree(userLocation, quadTreeNode.topLeftChild, radius)
-		response = append(response, tmpResponse...)
-	}
+	// Recursively check child nodes
+	results = append(results, quadTreeNode.topLeftChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
+	results = append(results, quadTreeNode.topRightChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
+	results = append(results, quadTreeNode.bottomLeftChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
+	results = append(results, quadTreeNode.bottomRightChild.GetNearbyEntitiesFromQuadTree(userLoc, searchRadius)...)
 
-	//search in top right child
-	if qT.isUserLocationInsideThisNodeRadius(quadTreeNode.topRightChild, userLocation, radius) {
-		tmpResponse := qT.GetNearbyEntitiesFromQuadTree(userLocation, quadTreeNode.topRightChild, radius)
-		response = append(response, tmpResponse...)
-	}
+	return results
+}
 
-	//search in bottom Left child
-	if qT.isUserLocationInsideThisNodeRadius(quadTreeNode.bottomLeftChild, userLocation, radius) {
-		tmpResponse := qT.GetNearbyEntitiesFromQuadTree(userLocation, quadTreeNode.bottomLeftChild, radius)
-		response = append(response, tmpResponse...)
-	}
-
-	//search in bottom right child
-	if qT.isUserLocationInsideThisNodeRadius(quadTreeNode.bottomRightChild, userLocation, radius) {
-		tmpResponse := qT.GetNearbyEntitiesFromQuadTree(userLocation, quadTreeNode.bottomRightChild, radius)
-		response = append(response, tmpResponse...)
-	}
-	return response
+func (qT *QuadTree) isThisNodeChild(quadTreeNode *Node) bool {
+	return quadTreeNode.topLeftChild == nil && quadTreeNode.topRightChild == nil &&
+		quadTreeNode.bottomLeftChild == nil && quadTreeNode.bottomRightChild == nil
 }
 
 func (qT *QuadTree) GetNearbyEntities(req models.NearbySearchRequest) []models.BusinessSearch {
-	entitySearch := req.UserLocation
-	return qT.GetNearbyEntitiesFromQuadTree(entitySearch, qT.quadTreeNode, req.Radius)
+	userLocation := req.UserLocation
+	return qT.quadTreeNode.GetNearbyEntitiesFromQuadTree(userLocation, req.Radius)
+}
+
+func (qT *QuadTree) UpdateQuadTree(listOfBusinessesInDB []models.Business) {
+	for _, businessDB := range listOfBusinessesInDB {
+		var businessQT models.BusinessSearch
+		businessQT.Location = businessDB.Location
+		businessQT.BusinessID = businessDB.ID
+		businessQT.Dist = GetDistance(businessQT.Location, models.Location{
+			Longitude: 76.903872,
+			Latitude:  28.842158,
+		})
+		qT.InsertNewNode(businessQT, qT.quadTreeNode)
+	}
 }

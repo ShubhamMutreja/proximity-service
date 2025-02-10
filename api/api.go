@@ -5,9 +5,10 @@ import (
 	"proximityService/models"
 )
 
-func ListAllBusiness() models.BusinessResponse {
+func ListAllBusiness(req models.NearbySearchRequest) models.BusinessResponse {
 	svc := database.GetDataStore()
-	data := svc.GetAllBusinessesFromDB()
+	data := svc.GetAllBusinessesFromDB(req)
+
 	var resp models.BusinessResponse
 	resp.Action = "List of Businesses for Debug"
 	resp.Businesses = data
