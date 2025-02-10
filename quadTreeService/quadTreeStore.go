@@ -29,111 +29,6 @@ type QuadTree struct {
 	maxSizeAllowedAtLeafNodes int
 }
 
-func NewQuadTree(latitude, longitude, width, height float64, maxSize int) *QuadTree {
-	var node Node
-	node.startLatitude = latitude
-	node.startLongitude = longitude
-	node.width = width
-	node.height = height
-	return &QuadTree{
-		quadTreeNode:              &node,
-		maxSizeAllowedAtLeafNodes: maxSize,
-	}
-}
-
-func (qT *QuadTree) isLocationWithinBoundingBox(location models.Location, quadTreeNode *Node) bool {
-	if location.Latitude >= float64(quadTreeNode.startLatitude) &&
-		location.Latitude < float64(quadTreeNode.startLatitude)+float64(quadTreeNode.width) &&
-		location.Longitude >= float64(quadTreeNode.startLongitude) &&
-		location.Longitude < float64(quadTreeNode.startLongitude)+float64(quadTreeNode.height) {
-		return true
-	}
-	return false
-}
-
-func (qT *QuadTree) divideIntoFourBoxes(quadTreeNode *Node) {
-	//starting point of the parent bounding box
-	startLatitude := quadTreeNode.startLatitude
-	startLongitude := quadTreeNode.startLongitude
-
-	//Dividing parent node into 4 children
-	newHeight := quadTreeNode.height / 2
-	newWidth := quadTreeNode.width / 2
-
-	quadTreeNode.topLeftChild = &Node{
-		startLatitude:  startLatitude,
-		startLongitude: startLongitude,
-		width:          newWidth,
-		height:         newHeight,
-	}
-	quadTreeNode.topRightChild = &Node{
-		startLatitude:  startLatitude + newWidth,
-		startLongitude: startLongitude,
-		width:          quadTreeNode.width - newWidth,
-		height:         newHeight,
-	}
-	quadTreeNode.bottomLeftChild = &Node{
-		startLatitude:  startLatitude,
-		startLongitude: startLongitude + newHeight,
-		width:          newWidth,
-		height:         quadTreeNode.height - newHeight,
-	}
-	quadTreeNode.bottomRightChild = &Node{
-		startLatitude:  startLatitude + newWidth,
-		startLongitude: startLongitude + newHeight,
-		width:          quadTreeNode.width - newWidth,
-		height:         quadTreeNode.height - newHeight,
-	}
-}
-
-func (qT *QuadTree) canNewNodeBeInserted(business models.BusinessSearch, quadTreeNodeChild *Node) bool {
-	if quadTreeNodeChild != nil && qT.isLocationWithinBoundingBox(business.Location, quadTreeNodeChild) {
-		return true
-	}
-	return false
-}
-
-func (qT *QuadTree) InsertNewNode(businessData models.BusinessSearch, quadTreeNode *Node) {
-	if !qT.isLocationWithinBoundingBox(businessData.Location, quadTreeNode) {
-		return
-	}
-
-	//Node is not a leaf. So we will check for which children we can add more nodes
-	if !qT.isThisNodeChild(quadTreeNode) {
-		if qT.canNewNodeBeInserted(businessData, quadTreeNode.topLeftChild) {
-			qT.InsertNewNode(businessData, quadTreeNode.topLeftChild)
-		}
-		if qT.canNewNodeBeInserted(businessData, quadTreeNode.topRightChild) {
-			qT.InsertNewNode(businessData, quadTreeNode.topRightChild)
-		}
-		if qT.canNewNodeBeInserted(businessData, quadTreeNode.bottomLeftChild) {
-			qT.InsertNewNode(businessData, quadTreeNode.bottomLeftChild)
-		}
-		if qT.canNewNodeBeInserted(businessData, quadTreeNode.bottomRightChild) {
-			qT.InsertNewNode(businessData, quadTreeNode.bottomRightChild)
-		}
-		return
-	}
-
-	//node is a leaf.
-	if len(quadTreeNode.listOfBusinesses) < qT.maxSizeAllowedAtLeafNodes {
-		quadTreeNode.listOfBusinesses = append(quadTreeNode.listOfBusinesses, businessData)
-		return
-	}
-	// too many businesses on this leaf node, time to divide this node to 4 children
-	qT.divideIntoFourBoxes(quadTreeNode)
-	quadTreeNode.listOfBusinesses = append(quadTreeNode.listOfBusinesses, businessData)
-	for _, e := range quadTreeNode.listOfBusinesses {
-		qT.InsertNewNode(e, quadTreeNode.topLeftChild)
-		qT.InsertNewNode(e, quadTreeNode.topRightChild)
-		qT.InsertNewNode(e, quadTreeNode.bottomLeftChild)
-		qT.InsertNewNode(e, quadTreeNode.bottomRightChild)
-	}
-	//clear the list as only leaf nodes have this list
-	quadTreeNode.listOfBusinesses = []models.BusinessSearch{}
-
-}
-
 // Use haversine instead of euclidian distance for longitudes and latitudes
 func haversine(sourceLatitudeDegrees, sourceLongitudeDegrees, destLatitudeDegrees, destLongitudeDegrees float64) float64 {
 	//Radius of Earth
@@ -170,6 +65,110 @@ func intersects(n *Node, loc models.Location, radius float64) bool {
 	return haversine(loc.Latitude, loc.Longitude, closestLat, closestLon) <= radius
 }
 
+func NewQuadTree(latitude, longitude, width, height float64, maxSize int) *QuadTree {
+	var node Node
+	node.startLatitude = latitude
+	node.startLongitude = longitude
+	node.width = width
+	node.height = height
+	return &QuadTree{
+		quadTreeNode:              &node,
+		maxSizeAllowedAtLeafNodes: maxSize,
+	}
+}
+
+func (quadTreeNode *Node) isLocationWithinBoundingBox(location models.Location) bool {
+	if location.Latitude >= float64(quadTreeNode.startLatitude) &&
+		location.Latitude < float64(quadTreeNode.startLatitude)+float64(quadTreeNode.width) &&
+		location.Longitude >= float64(quadTreeNode.startLongitude) &&
+		location.Longitude < float64(quadTreeNode.startLongitude)+float64(quadTreeNode.height) {
+		return true
+	}
+	return false
+}
+
+func (quadTreeNode *Node) divideIntoFourBoxes() {
+	//starting point of the parent bounding box
+	startLatitude := quadTreeNode.startLatitude
+	startLongitude := quadTreeNode.startLongitude
+
+	//Dividing parent node into 4 children
+	newHeight := quadTreeNode.height / 2
+	newWidth := quadTreeNode.width / 2
+
+	quadTreeNode.topLeftChild = &Node{
+		startLatitude:  startLatitude,
+		startLongitude: startLongitude,
+		width:          newWidth,
+		height:         newHeight,
+	}
+	quadTreeNode.topRightChild = &Node{
+		startLatitude:  startLatitude + newWidth,
+		startLongitude: startLongitude,
+		width:          quadTreeNode.width - newWidth,
+		height:         newHeight,
+	}
+	quadTreeNode.bottomLeftChild = &Node{
+		startLatitude:  startLatitude,
+		startLongitude: startLongitude + newHeight,
+		width:          newWidth,
+		height:         quadTreeNode.height - newHeight,
+	}
+	quadTreeNode.bottomRightChild = &Node{
+		startLatitude:  startLatitude + newWidth,
+		startLongitude: startLongitude + newHeight,
+		width:          quadTreeNode.width - newWidth,
+		height:         quadTreeNode.height - newHeight,
+	}
+}
+
+func (quadTreeNode *Node) canNewNodeBeInserted(business models.BusinessSearch) bool {
+	if quadTreeNode.isLocationWithinBoundingBox(business.Location) {
+		return true
+	}
+	return false
+}
+
+func (quadTreeNode *Node) InsertNewNode(businessData models.BusinessSearch) {
+	if !quadTreeNode.isLocationWithinBoundingBox(businessData.Location) {
+		return
+	}
+
+	//Node is not a leaf. So we will check for which children we can add more nodes
+	if !quadTreeNode.isThisNodeChild() {
+		if quadTreeNode.topLeftChild.canNewNodeBeInserted(businessData) {
+			quadTreeNode.topLeftChild.InsertNewNode(businessData)
+		}
+		if quadTreeNode.topRightChild.canNewNodeBeInserted(businessData) {
+			quadTreeNode.topRightChild.InsertNewNode(businessData)
+		}
+		if quadTreeNode.bottomLeftChild.canNewNodeBeInserted(businessData) {
+			quadTreeNode.bottomLeftChild.InsertNewNode(businessData)
+		}
+		if quadTreeNode.bottomRightChild.canNewNodeBeInserted(businessData) {
+			quadTreeNode.bottomRightChild.InsertNewNode(businessData)
+		}
+		return
+	}
+
+	//node is a leaf.
+	if len(quadTreeNode.listOfBusinesses) < 5 {
+		quadTreeNode.listOfBusinesses = append(quadTreeNode.listOfBusinesses, businessData)
+		return
+	}
+	// too many businesses on this leaf node, time to divide this node to 4 children
+	quadTreeNode.divideIntoFourBoxes()
+	quadTreeNode.listOfBusinesses = append(quadTreeNode.listOfBusinesses, businessData)
+	for _, e := range quadTreeNode.listOfBusinesses {
+		quadTreeNode.topLeftChild.InsertNewNode(e)
+		quadTreeNode.topRightChild.InsertNewNode(e)
+		quadTreeNode.bottomLeftChild.InsertNewNode(e)
+		quadTreeNode.bottomRightChild.InsertNewNode(e)
+	}
+	//clear the list as only leaf nodes have this list
+	quadTreeNode.listOfBusinesses = []models.BusinessSearch{}
+}
+
 func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location, searchRadius float64) []models.BusinessSearch {
 	var results []models.BusinessSearch
 
@@ -198,7 +197,7 @@ func (quadTreeNode *Node) GetNearbyEntitiesFromQuadTree(userLoc models.Location,
 	return results
 }
 
-func (qT *QuadTree) isThisNodeChild(quadTreeNode *Node) bool {
+func (quadTreeNode *Node) isThisNodeChild() bool {
 	return quadTreeNode.topLeftChild == nil && quadTreeNode.topRightChild == nil &&
 		quadTreeNode.bottomLeftChild == nil && quadTreeNode.bottomRightChild == nil
 }
@@ -217,6 +216,6 @@ func (qT *QuadTree) UpdateQuadTree(listOfBusinessesInDB []models.Business) {
 			Longitude: 76.903872,
 			Latitude:  28.842158,
 		})
-		qT.InsertNewNode(businessQT, qT.quadTreeNode)
+		qT.quadTreeNode.InsertNewNode(businessQT)
 	}
 }
