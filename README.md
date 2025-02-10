@@ -26,7 +26,7 @@ Make sure you have the following installed:
 ```sh
 git clone https://github.com/your-username/proximity-service.git
 cd proximity-service
-docker compose up -d --build .
+docker compose up -d --build
 ```
 This will:
 
